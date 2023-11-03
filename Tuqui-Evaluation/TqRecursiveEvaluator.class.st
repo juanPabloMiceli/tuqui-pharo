@@ -97,6 +97,31 @@ TqRecursiveEvaluator >> primitiveClosureWhileTrue [
 ]
 
 { #category : #visiting }
+TqRecursiveEvaluator >> send: aSymbol to: receiver with: arguments super: aBoolean [
+
+	| behavior method environment size |
+	behavior := aBoolean
+		            ifTrue: [ runtime superBehaviorOf: context classBinding ]
+		            ifFalse: [ runtime behaviorOf: receiver ].
+	method := self runtime doLookup: aSymbol startingAt: behavior.
+
+	method isBlock ifTrue: [ ^ method value: receiver value: arguments ].
+	method ifNil: [
+		^ (undermessages at: aSymbol) value: receiver value: arguments ].
+	self ASSERT: method notNil.
+	size := runtime methodEnvironmentSize: method.
+	environment := runtime newEnvironmentSized: size.
+	context := TqRecursiveLinkedContext new
+		           runtime: runtime;
+		           self: receiver;
+		           arguments: arguments;
+		           environment: environment;
+		           parent: context;
+		           method: method.
+	^ context evaluateFor: self
+]
+
+{ #category : #visiting }
 TqRecursiveEvaluator >> send: aSymbol to: receiver with: arguments super: aBoolean sendSite: anSMessage [
 
 	| behavior method environment size |
@@ -161,6 +186,14 @@ TqRecursiveEvaluator >> visitMessage: aMessage [
 	arg acceptVisitor: self].
 	^self send: (aMessage selector) to: receiver with: args super: false. 
 
+]
+
+{ #category : #visiting }
+TqRecursiveEvaluator >> visitMethod: aMethod [
+
+	^ aMethod pragma
+		  ifNil: [ self evalMethodStatements: aMethod statements ]
+		  ifNotNil: [ self evalPrimitive: aMethod ]
 ]
 
 { #category : #visiting }
