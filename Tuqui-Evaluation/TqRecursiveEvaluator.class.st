@@ -5,6 +5,25 @@ Class {
 }
 
 { #category : #visiting }
+TqRecursiveEvaluator >> evalMethodStatements: statements [
+	| last result |
+	last := nil.
+	statements do: [ :node |
+	last := node.
+	result := node acceptVisitor: self ].
+
+	^ (last notNil and: [ last isReturn ])
+		ifTrue: [ result ]
+ 		ifFalse: [ self context receiver]
+]
+
+{ #category : #visiting }
+TqRecursiveEvaluator >> evalPrimitive: aMethod [
+	^(self primitiveFor: aMethod pragma name) value.
+	
+]
+
+{ #category : #visiting }
 TqRecursiveEvaluator >> evaluateClosure: receiver whileFalse: arg [
 	| result |
 	[ result := self evaluateClosure: receiver.
@@ -108,4 +127,53 @@ TqRecursiveEvaluator >> superBehaviorOf: class [
 	| superclass |
 	superclass := self speciesSuperclass: class.
 	^ self speciesInstanceBehavior: superclass
+]
+
+{ #category : #visiting }
+TqRecursiveEvaluator >> visitAssignment: anAssignment [
+	| value |
+ 	value := anAssignment expression acceptVisitor: self.
+	anAssignment assignees do: [ :assignee | 
+		assignee binding assign: value within: self context.
+		 ].
+]
+
+{ #category : #visiting }
+TqRecursiveEvaluator >> visitBlock: aBlock [
+	^self context captureClosure: aBlock.
+]
+
+{ #category : #visiting }
+TqRecursiveEvaluator >> visitIdentifier: anIdent [
+ ^anIdent binding valueWithin: self context.
+]
+
+{ #category : #visiting }
+TqRecursiveEvaluator >> visitLiteral: aLiteral [
+	^aLiteral value.
+]
+
+{ #category : #visiting }
+TqRecursiveEvaluator >> visitMessage: aMessage [
+ | receiver args |
+	receiver := aMessage receiver acceptVisitor: self.
+	args := aMessage arguments collect: [:arg |
+	arg acceptVisitor: self].
+	^self send: (aMessage selector) to: receiver with: args super: false. 
+
+]
+
+{ #category : #visiting }
+TqRecursiveEvaluator >> visitNonLocalReturn: aValue [
+	^self context homeContext nonLocalReturn: aValue.
+]
+
+{ #category : #visiting }
+TqRecursiveEvaluator >> visitReturn: aReturn [
+	| value |
+	
+	value := aReturn expression acceptVisitor: self.
+	aReturn local ifFalse: [^self visitNonLocalReturn: value].
+	^value.
+
 ]

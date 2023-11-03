@@ -61,6 +61,28 @@ TqLinkedContext >> block [
 	^runtime closureBlock: environment
 ]
 
+{ #category : #visiting }
+TqLinkedContext >> captureClosure: aBlock [
+	| closure s  i |
+	closure := runtime newClosureFor: aBlock compiledCode.
+	s := aBlock capturedVariables readStream. i := 1.
+	[ s atEnd ] whileFalse: [ 
+		| type |
+		type := s next.
+ 		type = Self ifTrue: [ closure at: i put: self self ].
+ 		type = Environment ifTrue: [ closure at: i put: self environment ].
+ 		type = EnvironmentValue ifTrue: [ 
+			| env |
+			env := self environment at: s next. closure at: i put: env ].
+ 		type = LocalArgument ifTrue: [ 
+			| arg |
+			arg := self argumentAt: s next. closure at: i put: arg ].
+ i := i + 1 ].
+^ closure
+
+
+]
+
 { #category : #accessing }
 TqLinkedContext >> environment [
 	^ environment
